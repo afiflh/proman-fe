@@ -8,6 +8,8 @@ import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import { PDFButton } from "@/components/FileButton";
 import Select from 'react-select';
+import ApexCharts from "react-apexcharts";
+import { blue600, green600, purple600 } from "@/utils/chart-colors";
 
 const TABLE_HEAD = ["Project Id", "Project Name", "Previous Status Name", "Status Name", "Start Time", "End Time", "Duration", "Followed Up By"];
 
@@ -25,9 +27,34 @@ export function ProjectTimeFrame() {
   const [projectDescription, setProjectDescription] = useState({});
   const [hoveredProjectId, setHoveredProjectId] = useState(null);
   const [hoverPosition, setHoverPosition] = useState(null);
+  const [ganttData, setGanttData] = useState([]);
   
   const PER_PAGE = 10;
   const offset = currentPage * PER_PAGE;
+
+  // const safeTime = (dateStr) => {
+  //   const time = new Date(dateStr).getTime();
+  //   return isNaN(time) ? 0 : time;
+  // };
+
+  // const dummyGanttData = useMemo(() => [
+  //   {
+  //     x: "Initiation",
+  //     y: [safeTime("2025-06-01"), safeTime("2025-06-05")]
+  //   },
+  //   {
+  //     x: "Planning",
+  //     y: [safeTime("2025-06-06"), safeTime("2025-06-15")]
+  //   },
+  //   {
+  //     x: "Execution",
+  //     y: [safeTime("2025-06-16"), safeTime("2025-07-10")]
+  //   },
+  //   {
+  //     x: "Closing",
+  //     y: [safeTime("2025-07-11"), safeTime("2025-07-15")]
+  //   }
+  // ], []);
 
   useEffect(() => {
     fetchProjectAssignment();
@@ -36,6 +63,7 @@ export function ProjectTimeFrame() {
   useEffect(() => {
     if (formData.project_id) {
       fetchProjectTimeFrame();
+      fetchTaskListForGantt(formData.project_id);
     }
   }, [formData.project_id]);
 
@@ -51,6 +79,37 @@ export function ProjectTimeFrame() {
     }
     setIsLoading(false);
   };
+
+  const fetchTaskListForGantt = async (projectId) => {
+    try {
+      const url = `${import.meta.env.VITE_BASE_URL}/api/v1/task-list/${projectId}/by-project`;
+      const response = await apiRequest(url, "GET");
+  
+      if (response && Array.isArray(response.data)) {
+        const tasks = response.data;
+  
+        const formattedGanttData = tasks
+          .filter(task => task.duedate) // pastikan due date ada
+          .map(task => {
+            const end = new Date(task.duedate).getTime();
+            const start = end - (7 * 24 * 60 * 60 * 1000); // 7 hari sebelumnya
+  
+            return {
+              x: task.title || task.kode || 'Task',
+              y: [start, end]
+            };
+          });
+  
+        setGanttData(formattedGanttData);
+      } else {
+        setGanttData([]);
+      }
+    } catch (error) {
+      console.error("Error fetching tasklist for Gantt:", error);
+      setGanttData([]);
+    }
+  };
+  
 
   const getProjectDescription = (projectId) => {
     const project = projectDescription.find(p => p.id === projectId);
@@ -525,6 +584,8 @@ export function ProjectTimeFrame() {
           )}
         </CardBody>
 
+        {/* Pagination */}
+
         <CardFooter className="flex items-center justify-center border-t border-blue-gray-50 p-4">
           <div className="flex items-center gap-2">
             {[...Array(pageCount)].map((_, i) => (
@@ -539,6 +600,71 @@ export function ProjectTimeFrame() {
             ))}
           </div>
         </CardFooter>
+      </Card>
+      <br />
+
+      <Card>
+      <CardHeader floated={false} shadow={false} className="rounded-none overflow-visible">
+        <div className="border-b border-gray-300 pb-3">
+          <Typography className="font-poppins text-sm font-medium text-gray-600">
+            Gantt Chart
+          </Typography>
+        </div>
+      </CardHeader>
+
+      <CardBody className="px-0">
+        <div className="overflow-x-auto">
+            <div className="min-w-[600px]"> {/* kasih lebar minimum agar scroll muncul */}
+              {formData.project_id && (
+                <div className="bg-white rounded-lg shadow-sm">
+                  <ApexCharts
+                    type="rangeBar"
+                    height={350}
+                    series={[{ data: ganttData }]}
+                    options={{
+                      chart: {
+                        type: 'rangeBar',
+                        height: 350,
+                        toolbar: { show: false },
+                        zoom: { enabled: false },
+                        pan: { enabled: false }
+                      },
+                      plotOptions: {
+                        bar: {
+                          horizontal: true,
+                          barHeight: '50%',
+                        }
+                      },
+                      xaxis: {
+                        type: 'datetime',
+                        labels: {
+                          style: {
+                            fontFamily: 'Poppins, sans-serif',
+                            fontSize: '12px'
+                          }
+                        }
+                      },
+                      yaxis: {
+                        labels: {
+                          style: {
+                            fontFamily: 'Poppins, sans-serif',
+                            fontWeight: 500
+                          }
+                        }
+                      },
+                      tooltip: {
+                        x: {
+                          format: 'dd MMM yyyy'
+                        }
+                      },
+                      colors: [blue600, green600, purple600],
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+        </div>
+      </CardBody>
       </Card>
     </>
   );
