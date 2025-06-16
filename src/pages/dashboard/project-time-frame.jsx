@@ -80,20 +80,52 @@ export function ProjectTimeFrame() {
     setIsLoading(false);
   };
 
+  // const fetchTaskListForGantt = async (projectId) => {
+  //   try {
+  //     const url = `${import.meta.env.VITE_BASE_URL}/api/v1/task-list/${projectId}/by-project`;
+  //     const response = await apiRequest(url, "GET");
+  
+  //     if (response && Array.isArray(response.data)) {
+  //       const tasks = response.data;
+  
+  //       const formattedGanttData = tasks
+  //         .filter(task => task.duedate) // pastikan due date ada
+  //         .map(task => {
+  //           const end = new Date(task.duedate).getTime();
+  //           const start = end - (7 * 24 * 60 * 60 * 1000); // 7 hari sebelumnya
+  //           // const start = new Date(task.created_at).getTime();
+  
+  //           return {
+  //             x: task.title || task.kode || 'Task',
+  //             y: [start, end]
+  //           };
+  //         });
+  
+  //       setGanttData(formattedGanttData);
+  //     } else {
+  //       setGanttData([]);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching tasklist for Gantt:", error);
+  //     setGanttData([]);
+  //   }
+  // };
+  
   const fetchTaskListForGantt = async (projectId) => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/api/v1/task-list/${projectId}/by-project`;
+      const url = `${import.meta.env.VITE_BASE_URL}/api/v1/task-list/${projectId}/gantt-chart`;
       const response = await apiRequest(url, "GET");
+      console.log("Gantt Chart Data: ", response);
   
       if (response && Array.isArray(response.data)) {
         const tasks = response.data;
   
         const formattedGanttData = tasks
-          .filter(task => task.duedate) // pastikan due date ada
+          .filter(task => task.created_at && task.duedate)
           .map(task => {
+            const start = new Date(task.created_at).getTime();
             const end = new Date(task.duedate).getTime();
-            const start = end - (7 * 24 * 60 * 60 * 1000); // 7 hari sebelumnya
-  
+        
             return {
               x: task.title || task.kode || 'Task',
               y: [start, end]
@@ -102,13 +134,14 @@ export function ProjectTimeFrame() {
   
         setGanttData(formattedGanttData);
       } else {
+        console.warn("Empty or invalid Gantt task data:", response);
         setGanttData([]);
       }
     } catch (error) {
-      console.error("Error fetching tasklist for Gantt:", error);
+      console.error("Error fetching Gantt chart data:", error);
       setGanttData([]);
     }
-  };
+  };  
   
 
   const getProjectDescription = (projectId) => {
